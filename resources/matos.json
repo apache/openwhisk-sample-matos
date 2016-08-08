@@ -1,0 +1,14 @@
+{
+"kafkaBroker" : "kafka01-prod01.messagehub.services.us-south.bluemix.net:9093",
+"kafkaRest" : "https://kafka-rest-prod01.messagehub.services.us-south.bluemix.net:443",
+"kafkaTopic" : "matos-topic",
+"kafkaPartition" : "0",
+"kafkaConsumerId": "matos-id",
+"kafkaStartOffset": "-1",
+"kafkaEndOffset": "-1",
+"kafkaNumRecords": "1000",
+"swiftAuthUrl" : "https://identity.open.softlayer.com/v3/auth/tokens",
+"swiftRegion" : "dallas",
+"swiftContainer" : "matos-folder"
+}
+

@@ -1,93 +1,142 @@
-# message-hub-kafka-ssl
-This Java sample can connect to one of the Message Hub Kafka endpoints. It can be
-used on multiple platforms - [IBM Bluemix](https://console.ng.bluemix.net/) or your own machine!
+## *MATOS*: Serverless **M**essage **A**rchiver **T**o **O**bject **S**torage
+### Motivation
+***Matos*** demonstrates Bluemix-based serverless implementation of a simple pipeline (hosted on OpenWhisk) that reads messages from a Message Hub topic and archives them in batches into an Object Storage folder. 
 
-__Important Note__: This sample creates a topic on your behalf with one partition - this will incur a fee if the topic does not already exist on your account.
+The serverless architecture introduces multiple advantages. First, by leveraging OpenWhisk and given the persistent nature of Message Hub, it is possible to apply the archiving in batches, and pay only for the short periods of execution time (typically seconds) of each batch. Moreover, the architecture can seamlessly accommodate spikes in load due to inherent elasticity of OpenWhisk. The combination of the two can dramatically reduce the overall cost, and increase the elasticity of the solution.
 
-## Global Prerequisites
-To build and run the sample, you must have the following installed:
-* [git](https://git-scm.com/)
-* [Gradle](https://gradle.org/)
-* Java 7+
-* [Message Hub Service Instance](https://console.ng.bluemix.net/catalog/services/message-hub/) provisioned in [IBM Bluemix](https://console.ng.bluemix.net/)
+*Matos* is implemented in Java.
 
-## Prerequisites (Local)
-[View the video tutorial](https://www.youtube.com/watch?v=tt-bLtFzC_4) 
-__Note:__ You no longer need to update the SASL configuration manually.
+***Disclamer***: notice that this implementation is for education/demonstration purposes ONLY. It does not address many important requirements, such as high availability, consistency and delivery guarantees. Moreover, there are several known cases when the program does not function properly (e.g., illegal parameters, invocation 'corner cases', etc).
 
-#### Updating the Properties Files
-Firstly, you will need to update the consumer and producer properties files. These can be found
-in the ```resources``` directory. The only keys you need to update in each of the consumer and
-producer properties files are the following:
+***Matos*** was inspired by [Secor](https://github.com/pinterest/secor).
 
-* ssl.truststore.location
-  * Set to the location of the `cacerts` file, most commonly located in _java.home_/lib/security
-* ssl.truststore.password
-  * If you have not changed the password, the default is _changeit_
+### Overview
+The heart of ***matos*** is an OpenWhisk action called **batch**, that copies a batch of messages from a Message Hub topic into an Object Storage folder. The action can be invoked passing a range of Kafka message offsets to archive. Otherwise it would archive all the pending messages since the last invocation (enabling, for example, periodic time-based invocation). Every batch will be saved in a separate file within the specified folder, using a naming convention that contains current timestamp and the range of offsets. In addition, there are two helper functions -- **load**, to produce a given amount of test messages into Message Hub, and **monitor**, to retrieve the current offsets (latest and last committed) for a given topic and consumer ID.
 
-#### Updating SASL Configuration
-You no longer need to update the SASL Configuration manually - it is generated at run-time.
+The actions receive arguments either via a configuration file (in JSON format, packaged with the action's jar file) or via regular action parameters mechanisms (explicit or package-bound). The parameters are:
+* `kafkaBroker` - the address of the Message Hub broker to connect to, as appears in VCAP_SERVICES (e.g., `kafka01-prod01.messagehub.services.us-south.bluemix.net:9093`)
+* `kafkaApiKey` (\*) - the API key of your Message Hub instance that you want *Matos* to work with, as appears in VCAP_SERVICES (typically 48 characters)
+* `kafkaTopic` - the name of the topic in the above instance (e.g., `matos-topic`)
+* `kafkaPartition` - the partition number within the topic (typically 0, unless the topic has multiple partitions)
+* `kafkaConsumerId` - a string identifying this Matos instance (e.g., `matos-id`)
+* `kafkaStartOffset` - only for **batch** action ("-1" means that last committed offset will be used)
+* `kafkaEndOffset` - only for **batch** action ("-1" means that latest available offset will be used)
+* `kafkaNumRecords` - only for **load** (e.g., "1000")
+* `swiftAuthUrl` - the auth URL of the Object Storage service, as appears in VCAP_SERVICES, with the proper suffix (e.g., `https://identity.open.softlayer.com/v3/auth/tokens`)
+* `swiftRegion` - the region of the Object Storage service, as appears in VCAP_SERVICES (e.g., `dallas`)
+* `swiftTenantId` (\*) - the tenant ID of the Object Storage service instance you want to work with, as appears in VCAP_SERVICES (typically 32 characters)
+* `swiftUserId` (\*) - the user ID of the Object Storage service instance, as appears in VCAP_SERVICES (typically 32 characters)
+* `swiftPassword` (\*) - the password for the Object Storage service instance, as appears in VCAP_SERVICES (typically 16 characters. Notice that it may contain special characters, so make sure to escape them with '\')
+* `swiftContainer` - the name of the folder within the Object Storage service instance (e.g., `matos-folder`)
 
-## Prerequisites (Bluemix)
-* [Cloud Foundry Command Line Interface](https://github.com/cloudfoundry/cli/releases) installed
-* Open the `manifest.yml` file and rename the `"message-hub-service"` entry to that of your own
-Message Hub Service Instance name.
+See [resources/matos.json](resources/matos.json) for an example. Notice that due to security reasons, parameters marked with (\*) would typically not be specified in the configuration file, but rather as runtime parameters of the OpenWhisk package binding (as demonstrated below).
 
-## Running the Build Script
-Run the following commands on your local machine, after the prerequisites for your environment have been completed:
-```shell
-gradle clean && gradle build
- ```
+For convenience, the actions can be also invoked locally as regular Java programs (in which case the config file is passed as first argument, followed by relevant parameters marked above with (\*) - just run them without parameters to see the exact usage). When invoked locally, the `monitor` program runs continuously, retrieving and displaying offsets every 5 seconds (you can interrupt it with Ctrl-C).
 
-This will download the required dependencies and copy any files located in the lib-message-hub directory.
-Once built, the sample can be located in the `build/libs` directory, along with the `resources` folder,
-log4j configuration and any libraries required by the sample.
+### Prerequisites
+* Bluemix account
+* Message Hub instance
+  - You will need to create a **topic** (e.g., `matos-topic`, typically with a single partition), to decide on **consumerId** (arbitrary string - e.g., `matos-id`) and to locate (in VCAP_SERVICES) the **api key** and the address of the **broker**.
+* Object Storage instance
+  - You will need to create a **folder** (e.g., `matos-folder`) and to locate (in VCAP_SERVICES) the **auth_url**, **region**, **projectId**, **userId** and **password**. The id's are 32 characters long, and the password is 16 characters. Notice that the password may include special characters, which you may need to escape with '\' when specifying in config file and/or command line.
+* Local installation and configuration of git, Python, Java 8, gradle, openwhisk CLI (https://new-console.ng.bluemix.net/openwhisk/cli)
 
-## Running the Sample (Local)
-To run the sample, navigate to the `build/libs` directory and run the following command:
-```shell
-java -Djava.security.auth.login.config=resources/jaas.conf -jar <name_of_jar>.jar <kafka_endpoint> <rest_endpoint> <api_key>
+### Download and configure:
+```sh
+:~$ git clone <URL_OF_THIS_REPOSITORY.git>
+:~$ cd matos
+:~/matos$ mkdir run; mkdir tmp
+:~/matos$ vi resources/matos.json
 ```
+Make sure your `matos.json` contains the proper values for `kafkaBroker`, `kafkaTopic`, `kafkaPartition`, `swiftAuthUrl`, `swiftRegion`, `swiftContainer`.
 
-The sample will run indefinitely until interrupted. To stop the process, use `Ctrl+C`, for example.
-
-## Running the Sample (Bluemix)
-Connect to Bluemix with the Cloud Foundry Command Line Interface, then run the following command in
-the same directory as the `manifest.yml` file:
-```shell
-cf push
+### Build:
+```sh
+:~/matos$ ./rejar.sh
 ```
-
-__Note:__ The Bluemix distribution will automatically update the required files for you at runtime,
-using the `VCAP_SERVICES` information provided by Bluemix.
-
-## Sample Output
-Below is a snippet of the output generated by the sample. Note that the sample will also create
-a topic for you.
-
+### OpenWhisk configuration:
+```sh
+:~/matos$ wsk package create matos
+:~/matos$ wsk action create matos/load run/matos-load.jar
+:~/matos$ wsk action create matos/monitor run/matos-monitor.jar
+:~/matos$ wsk action create matos/batch run/matos-batch.jar
+:~/matos$ wsk package bind matos mymatos --param kafkaApiKey <API_KEY> --param swiftTenantId <TENANT_ID> --param swiftUserId <USER_ID> --param swiftPassword <PASSWORD>
 ```
-[2015-12-11 11:12:10,086] INFO Running in local mode. (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:10,086] INFO Starting Message Hub Java Sample (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:10,086] INFO Sample will run until interrupted. (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:10,087] INFO Resource directory: <directory_name> (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:10,087] INFO Kafka Endpoint: kafka01-prod01.messagehub.services.us-south.bluemix.net:9094 (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:10,087] INFO Rest API Endpoint: https://kafka-rest-prod01.messagehub.services.us-south.bluemix.net:443 (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:12,292] INFO Topics: [{"name":"mytopic","markedForDeletion":false}] (com.messagehub.samples.MessageHubJavaSample)
-[2015-12-11 11:12:12,531] INFO class com.messagehub.samples.ConsumerRunnable is starting. (com.messagehub.samples.ConsumerRunnable)
-[2015-12-11 11:12:12,531] INFO class com.messagehub.samples.ProducerRunnable is starting. (com.messagehub.samples.ProducerRunnable)
-[2015-12-11 11:12:14,208] INFO Message produced, offset: 0 (com.messagehub.samples.ProducerRunnable)
-[2015-12-11 11:12:14,308] INFO Message: [{"value":"This is a test message0","timestamp":"Mon Feb 01 14:11:28 GMT 2016"}] (com.messagehub.samples.ConsumerRunnable)
-[2015-12-11 11:12:15,343] INFO Message produced, offset: 1 (com.messagehub.samples.ProducerRunnable)
-[2015-12-11 11:12:15,443] INFO Message: [{"value":"This is a test message1","timestamp":"Mon Feb 01 14:11:29 GMT 2016"}] (com.messagehub.samples.ConsumerRunnable)
-[2015-12-11 11:12:16,480] INFO Message produced, offset: 2 (com.messagehub.samples.ProducerRunnable)
-[2015-12-11 11:12:16,580] INFO Message: [{"value":"This is a test message2","timestamp":"Mon Feb 01 14:11:30 GMT 2016"}] (com.messagehub.samples.ConsumerRunnable)
+### Consequent updates (if you make code changes)
+```sh
+:~/matos$ ./rejar.sh
+:~/matos$ ./rewhisk.sh
 ```
+In order to work with the project in Eclipse, run `gradle eclipse` to download dependencies and to configure the buildpath properly.
 
-## DIMPIPE Scenario:
-- gradle clean && gradle fatJar
-- mkdir -p tmp; mkdir -p run
-- rm -rf tmp/* run/* ; cd tmp ; jar xf ../build/libs/message-hub-kafka-ssl-all-1.0.jar ; jar cfe ../run/mhub.jar com.messagehub.samples.MessageHubFetcher *; cd ..
-- cd run
-- wsk action invoke mhub mhub.jar
-- wsk action invoke mhub --param apikey aEjcVlrmdUWBvZ9sRkbVwD0koZqHYjIYya4DiRr5Eh2gqKB8 --blocking --result
+Notice that if you want to change some of the OpenWhisk parameters associated with mymatos, you currently need to specify them all in `wsk package update mymatos ...`.
 
+### Example usage
+Run the following command in a separate window to continuously observe OpenWhisk logs:
+```sh
+:~/matos$ wsk activation poll
+```
+Load some messages into Message Hub (make sure you run the actions under the `mymatos` namespace, where you defined all the credentials):
+```sh
+:~/matos$ wsk action invoke mymatos/load --blocking --result
+{
+  "last": "1000"
+}
+:~/matos$ wsk action invoke mymatos/load --blocking --result
+{
+  "last": "2000"
+}
+```
+Archive some messages to Object Storage (explicitly specifying offsets):
+```sh
+:~/matos$ wsk action invoke mymatos/batch --blocking --result --param kafkaStartOffset 0 --param kafkaEndOffset 1000
+{
+  "last": "[0..1000]"
+}
+```
+Load some more messages:
+```sh
+:~/matos$ wsk action invoke mymatos/load --blocking --result --param kafkaNumRecords 2000
+{
+  "last": "4000"
+}
+```
+Check offsets:
+```sh
+:~/matos$ wsk action invoke mymatos/monitor --blocking --result
+{
+  "committed": "1000",
+  "last": "4000"
+}
+```
+Archive all the pending messages to Object Storage:
+```sh
+:~/matos$ wsk action invoke mymatos/batch --blocking --result
+{
+  "last": "[1000..4000]"
+}
+```
+Load more messages:
+```sh
+:~/matos$ wsk action invoke mymatos/load --blocking --result --param kafkaNumRecords 3000
+{
+  "last": "7000"
+}
+:~/matos$ wsk action invoke mymatos/load --blocking --result --param kafkaNumRecords 3000
+{
+  "last": "10000"
+}
+```
+Archive all the pending messages to Object Storage:
+```sh
+:~/matos$ wsk action invoke mymatos/batch --blocking --result
+{
+  "last": "[4000..10000]"
+}
+```
+Notice that if your Kafka topic has multiple partitions, make sure that you specify the right partition when invoking `batch` or `monitor` actions (0 in the default configuration file).
+
+At any point, you can access the Object Storage service instance to observe the files created for each batch.
+
+### Design and Implementation Details
+Refer to [DESIGN.md](DESIGN.md)

@@ -21,18 +21,13 @@ apply plugin: 'java'
 apply plugin: 'application'
 apply plugin: 'eclipse'
 
-mainClassName = 'com.messagehub.samples.MessageHubFetcher'
+mainClassName = 'com.ibm.matos.Utils'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 version = '1.0'
 
 repositories {
     mavenCentral()
-
-    // Read from lib/ directory
-    flatDir {
-        dirs 'lib'
-    }
 }
 
 dependencies {
@@ -40,6 +35,9 @@ dependencies {
     compile 'log4j:log4j:1.2.17'
     compile 'org.slf4j:slf4j-log4j12:1.7.6'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.7.0-rc1'
+    compile 'com.ibm.stocator:stocator:1.0.4'
+    compile 'org.javaswift:joss:0.9.12'
+    compile 'com.google.code.gson:gson:2.7'
     compile fileTree(dir: 'lib-message-hub', include: ['*.jar'])
 }
 
@@ -59,13 +57,7 @@ uploadArchives {
 }
 
 //create a single Jar with all dependencies
-task fatJar(type: Jar) {
-    baseName = project.name + '-all'
-    // Provide Main-Class so the JAR executes properly, along with the required classpath data.
-    manifest {
-        attributes('Main-Class': mainClassName)
-    }
-
+task oneJar(type: Jar) {
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     copy {
         from 'resources/log4j.properties'
@@ -76,11 +68,40 @@ task fatJar(type: Jar) {
         include 'resources/*'
     }
     with jar
-//    doLast {
-//        println "configurations:"
-//        configurations.collect {println it}
-//        println "runtime:"
-//        configurations.runtime.collect {println it}
-//    }
 }
 
+task jarLoader (type: Jar) {
+    doFirst {
+        baseName = project.name + '-load'
+        manifest {
+            attributes('Main-Class': 'com.ibm.matos.Load')
+        }
+        exclude '**/matos/Monitor*'
+        exclude '**/matos/Batch*'
+    }
+    with oneJar
+}
+
+task jarMonitor (type: Jar) {
+    doFirst {
+        baseName = project.name + '-monitor'
+        manifest {
+            attributes('Main-Class': 'com.ibm.matos.Monitor')
+        }
+        exclude '**/matos/Load*'
+        exclude '**/matos/Batch*'
+    }
+    with oneJar
+}
+
+task jarBatch (type: Jar) {
+    doFirst {
+        baseName = project.name + '-batch'
+        manifest {
+            attributes('Main-Class': 'com.ibm.matos.Batch')
+        }
+        exclude '**/matos/Load*'
+        exclude '**/matos/Monitor*'
+    }
+    with oneJar
+}

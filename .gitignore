@@ -1,3 +1,6 @@
 *.~lock.*
 *.classpath
 *.class
+/build/
+.gradle/**
+run/**
