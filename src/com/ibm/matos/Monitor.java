@@ -147,7 +147,7 @@ public class Monitor {
 	
 	private static void updateLastOffset(KafkaConsumer<?, ?> kafkaConsumer, TopicPartition tp) {
 		kafkaConsumer.assign(Collections.singletonList(tp));
-		kafkaConsumer.seekToEnd(tp);
+		kafkaConsumer.seekToEnd(Collections.singletonList(tp));
 		lastOffset = kafkaConsumer.position(tp);
 		logger.log(Level.INFO, "Retrieved last offset: " + lastOffset);
 	}

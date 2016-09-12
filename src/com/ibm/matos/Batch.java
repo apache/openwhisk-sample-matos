@@ -151,7 +151,7 @@ public class Batch {
 		startOffset = kafkaConsumer.position(tp);
 		if (endOffset < 0) {	// get last offset
 			// rewind to end, get offset, then rewind back
-			kafkaConsumer.seekToEnd(tp);
+			kafkaConsumer.seekToEnd(Collections.singletonList(tp));
 			endOffset = kafkaConsumer.position(tp);	// returns the 'next after last' offset
 			kafkaConsumer.seek(tp, startOffset);
 		}

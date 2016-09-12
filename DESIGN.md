@@ -28,7 +28,6 @@ There are several implementation details that had to be adjusted to fit the runt
 * Improve documentation within the code
 * Improve robustness: validation of arguments, better error handling, etc
 * Enable batch/monitor actions targeting multiple partitions
-* Switch to Kafka client 0.10
 * Tests
 * Feedback loop that would ensure end-to-end delivery guarantees
 * Adaptive controller that would trigger `batch` actions in an intelligent manner
