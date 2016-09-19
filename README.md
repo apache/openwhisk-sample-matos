@@ -60,7 +60,8 @@ Make sure your `matos.json` contains the proper values for `kafkaBroker`, `kafka
 :~/matos$ wsk action create matos/load run/matos-load.jar
 :~/matos$ wsk action create matos/monitor run/matos-monitor.jar
 :~/matos$ wsk action create matos/batch run/matos-batch.jar
-:~/matos$ wsk package bind matos mymatos --param kafkaApiKey <API_KEY> --param swiftTenantId <TENANT_ID> --param swiftUserId <USER_ID> --param swiftPassword <PASSWORD>
+:~/matos$ wsk action create matos/batchW js/batchW.js
+:~/matos$ wsk package bind matos mymatos --param kafkaApiKey <API_KEY> --param swiftTenantId <TENANT_ID> --param swiftUserId <USER_ID> --param swiftPassword <PASSWORD> --param owPath <OPENWHISK_NAMESPACE>/mymatos
 ```
 ### Consequent updates (if you make code changes)
 ```sh
@@ -134,6 +135,17 @@ Archive all the pending messages to Object Storage:
   "last": "[4000..10000]"
 }
 ```
+
+Alternatively, `monitor` and `batch` could be invoked as part of a sequence, triggered by a timer every 5 minutes:
+```sh
+:~/matos$ wsk action create matosMB --sequence mymatos/monitor,mymatos/batchW
+:~/matos$ wsk trigger create everyFiveMinutes --feed /whisk.system/alarms/alarm -p cron '*/5 * * * *'
+:~/matos$ wsk rule create --enable matosEvery5min everyFiveMinutes matosMB 
+```
+
+As a result, consequent invocations of `load` will be handled in batches every 5 minutes - while `batch` action will be invoked only if new data is available.
+
+
 Notice that if your Kafka topic has multiple partitions, make sure that you specify the right partition when invoking `batch` or `monitor` actions (0 in the default configuration file).
 
 At any point, you can access the Object Storage service instance to observe the files created for each batch.
