@@ -17,7 +17,7 @@ whisk_action_create_or_update () {
 
 echo Updating Whisk...
 wsk package get -s matos 2> /dev/null
-if [ $? -neq 0 ]
+if [ $? -ne 0 ]
 then
     echo Creating \"matos\" package
     wsk package create matos
