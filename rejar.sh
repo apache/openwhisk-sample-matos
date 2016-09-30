@@ -1,4 +1,5 @@
 #/bin/sh
+mkdir -p tmp run
 echo Building jars...
 gradle jarMonitor jarLoader jarBatch
 
