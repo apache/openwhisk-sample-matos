@@ -1,6 +1,6 @@
 #/bin/sh
 
-whisk_create_or_update () {
+whisk_action_create_or_update () {
 
     ACTION=$1
     FILE=$2
@@ -16,9 +16,15 @@ whisk_create_or_update () {
 }
 
 echo Updating Whisk...
-whisk_create_or_update matos/load run/matos-load.jar
-whisk_create_or_update matos/batch run/matos-batch.jar
-whisk_create_or_update matos/monitor run/matos-monitor.jar
-whisk_create_or_update matos/batchW js/batchW.js
+wsk package get -s matos 2> /dev/null
+if [ $? -neq 0 ]
+then
+    echo Creating \"matos\" package
+    wsk package create matos
+fi
+whisk_action_create_or_update matos/load run/matos-load.jar
+whisk_action_create_or_update matos/batch run/matos-batch.jar
+whisk_action_create_or_update matos/monitor run/matos-monitor.jar
+whisk_action_create_or_update matos/batchW js/batchW.js
 echo Done
 
