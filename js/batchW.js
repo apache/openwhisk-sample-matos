@@ -1,3 +1,6 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more contributor
+// license agreements; and to You under the Apache License, Version 2.0.
+
 function main(params) {
     if(!params.owPath || !params.last || !params.committed) {
         return whisk.error();
@@ -18,4 +21,4 @@ function main(params) {
         return whisk.done();
     }
 }
-	
+
