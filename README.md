@@ -1,6 +1,11 @@
-## *MATOS*: Serverless **M**essage **A**rchiver **T**o **O**bject **S**torage
+## Serverless **M**essage **A**rchiver **T**o **O**bject **S**torage (MATOS) Sample Application
+
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+#[![Build Status](https://travis-ci.org/apache/incubator-openwhisk-sample-matos.svg?branch=master)](https://travis-ci.org/apache/incubator-openwhisk-sample-matos)
+
 ### Motivation
-***Matos*** demonstrates Bluemix-based serverless implementation of a simple pipeline (hosted on OpenWhisk) that reads messages from a Message Hub topic and archives them in batches into an Object Storage folder. 
+
+***Matos*** demonstrates Bluemix-based serverless implementation of a simple pipeline (hosted on OpenWhisk) that reads messages from a Message Hub topic and archives them in batches into an Object Storage folder.
 
 The serverless architecture introduces multiple advantages. First, by leveraging OpenWhisk and given the persistent nature of Message Hub, it is possible to apply the archiving in batches, and pay only for the short periods of execution time (typically seconds) of each batch. Moreover, the architecture can seamlessly accommodate spikes in load due to inherent elasticity of OpenWhisk. The combination of the two can dramatically reduce the overall cost, and increase the elasticity of the solution.
 
@@ -140,7 +145,7 @@ Alternatively, `monitor` and `batch` could be invoked as part of a sequence, tri
 ```sh
 :~/matos$ wsk action create matosMB --sequence mymatos/monitor,mymatos/batchW
 :~/matos$ wsk trigger create everyFiveMinutes --feed /whisk.system/alarms/alarm -p cron '*/5 * * * *'
-:~/matos$ wsk rule create --enable matosEvery5min everyFiveMinutes matosMB 
+:~/matos$ wsk rule create --enable matosEvery5min everyFiveMinutes matosMB
 ```
 
 As a result, consequent invocations of `load` will be handled in batches every 5 minutes - while `batch` action will be invoked only if new data is available.
